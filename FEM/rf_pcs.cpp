@@ -7854,6 +7854,7 @@ std::valarray<double> CRFProcess::getNodeVelocityVector(const long node_id)
 	void CRFProcess::IncorporateSourceTerms(const int rank)
 	{
 		double value = 0, fac = 1.0, time_fac;
+		double value_temp;
 		int interp_method = 0;
 		int curve, valid = 0;
 		long msh_node, shift;
@@ -8269,36 +8270,68 @@ std::valarray<double> CRFProcess::getNodeVelocityVector(const long node_id)
 					{
 						double P_temp;
 						ogshe_k = std::find(((((this)->fem)->pcs)->_problem)->PipeName.begin(), ((((this)->fem)->pcs)->_problem)->PipeName.end(), (m_st)->geo_name) - ((((this)->fem)->pcs)->_problem)->PipeName.begin();
-						if (fem->ST_Pressures[ogshe_k] < -2400) //leakage flow below this pressure only depends on pipe water level
+						//double OGSHE_DataTransferID = ((((this)->fem)->pcs)->_problem)->OGSHE_pipe_position_in_alphanumeric_list[ogshe_k];
+						if ((GetNodeValue(msh_node, 1) - (this->_problem->PipeWaterLevel[ogshe_k] * ((this)->fem)->rhow * gravity_constant)) <= 0) // if GW level below defect - Exfiltration
+						//if ((*((this)->eqs_x) - (this->_problem->PipeWaterLevel[ogshe_k] * ((this)->fem)->rhow * gravity_constant)) < 0) // if GW level below defect - Exfiltration
 						{
-							P_temp = -2400; 
+							if (GetNodeValue(msh_node, 1) < ((((this)->fem)->pcs)->_problem)->Disconnection_Pressure)// || *((this)->eqs_x) < -5622.53) //leakage flow below this pressure only depends on pipe water level
+							//if ( *((this)->eqs_x) < -2400) //leakage flow below this pressure only depends on pipe water level
+							{
+								P_temp = ((((this)->fem)->pcs)->_problem)->Disconnection_Pressure;
+							}
+							else
+							{
+								P_temp = GetNodeValue(msh_node, 1);
+							}
+							if (abs(this->_problem->PipeWaterLevel[ogshe_k]) <= .0001) // If P < 0 && H_{PW}=0, Q_{leak} = 0; 
+							{
+								value = 0;
+							}
+							else
+							{
+								/*OLD leakage function*/
+								//value = ((((this)->fem)->pcs)->_problem)->Defect_Area * ((((this)->fem)->pcs)->_problem)->OGSHEPipeLenght[ogshe_k] * (1 / .000225) *
+								//	(((((this)->fem)->pcs)->_problem)->a00 + ((((this)->fem)->pcs)->_problem)->a10 * P_temp + ((((this)->fem)->pcs)->_problem)->a01 * this->_problem->PipeWaterLevel[ogshe_k] +
+								//	((((this)->fem)->pcs)->_problem)->a20 * pow(P_temp, 2) +
+								//	((((this)->fem)->pcs)->_problem)->a11 * P_temp * this->_problem->PipeWaterLevel[ogshe_k] + ((((this)->fem)->pcs)->_problem)->a02 * pow(this->_problem->PipeWaterLevel[ogshe_k], 2) +
+								//	((((this)->fem)->pcs)->_problem)->a30 * pow(P_temp, 3) + ((((this)->fem)->pcs)->_problem)->a21 * pow(P_temp, 2) * this->_problem->PipeWaterLevel[ogshe_k] +
+								//	((((this)->fem)->pcs)->_problem)->a12 * P_temp * pow(this->_problem->PipeWaterLevel[ogshe_k], 2) + ((((this)->fem)->pcs)->_problem)->a03 * pow(this->_problem->PipeWaterLevel[ogshe_k], 3) +
+								//	((((this)->fem)->pcs)->_problem)->a40 * pow(P_temp, 4) + ((((this)->fem)->pcs)->_problem)->a31 * pow(P_temp, 3) * this->_problem->PipeWaterLevel[ogshe_k] +
+								//	((((this)->fem)->pcs)->_problem)->a22 * pow(P_temp, 2) * pow(this->_problem->PipeWaterLevel[ogshe_k], 2) +
+								//	((((this)->fem)->pcs)->_problem)->a13 * P_temp * pow(this->_problem->PipeWaterLevel[ogshe_k], 3)); //apply leakage function
+
+								value = ((((this)->fem)->pcs)->_problem)->Defect_Area[ogshe_k] * ((((this)->fem)->pcs)->_problem)->exchange_time_step_OGSHE * ((((this)->fem)->pcs)->_problem)->OGSHEPipeLenght[ogshe_k]  *
+									(((((this)->fem)->pcs)->_problem)->a00 + ((((this)->fem)->pcs)->_problem)->a10 * P_temp + ((((this)->fem)->pcs)->_problem)->a01 * this->_problem->PipeWaterLevel[ogshe_k] +
+									((((this)->fem)->pcs)->_problem)->a20 * pow(P_temp, 2) +
+									((((this)->fem)->pcs)->_problem)->a11 * P_temp * this->_problem->PipeWaterLevel[ogshe_k] + ((((this)->fem)->pcs)->_problem)->a02 * pow(this->_problem->PipeWaterLevel[ogshe_k], 2) +
+									((((this)->fem)->pcs)->_problem)->a30 * pow(P_temp, 3) + ((((this)->fem)->pcs)->_problem)->a21 * pow(P_temp, 2) * this->_problem->PipeWaterLevel[ogshe_k] +
+									((((this)->fem)->pcs)->_problem)->a12 * P_temp * pow(this->_problem->PipeWaterLevel[ogshe_k], 2) + ((((this)->fem)->pcs)->_problem)->a03 * pow(this->_problem->PipeWaterLevel[ogshe_k], 3) +
+									((((this)->fem)->pcs)->_problem)->a40 * pow(P_temp, 4) + ((((this)->fem)->pcs)->_problem)->a31 * pow(P_temp, 3) * this->_problem->PipeWaterLevel[ogshe_k] +
+									((((this)->fem)->pcs)->_problem)->a22 * pow(P_temp, 2) * pow(this->_problem->PipeWaterLevel[ogshe_k], 2) +
+									((((this)->fem)->pcs)->_problem)->a13 * P_temp * pow(this->_problem->PipeWaterLevel[ogshe_k], 3)); 
+							}
+							double ogshe_output_temp[] = { msh_node, fem->ST_Pressures[ogshe_k], this->_problem->PipeWaterLevel[ogshe_k], value };
+							// ap initialize temporal output file
 						}
-						else
+						else // GW level above pipe water level - Infiltration - Darcy with local hydraulic conductivity of backfill; alternatively use (((this)->fem)->MediaProp)->local_permeability for local material
 						{
-							P_temp = fem->ST_Pressures[ogshe_k];
+							P_temp = GetNodeValue(msh_node, 1);
+							value = ((((this)->fem)->pcs)->_problem)->Defect_Area[ogshe_k] * ((((this)->fem)->pcs)->_problem)->OGSHEPipeLenght[ogshe_k] * ((((this)->fem)->pcs)->_problem)->exchange_time_step_OGSHE * 
+									((((((this)->fem)->pcs)->_problem)->Backfill_Permeability *((this)->fem)->rhow * gravity_constant) / fem->FluidProp->Viscosity()) *
+								(((this->_problem->PipeWaterLevel[ogshe_k] + ((((this)->fem)->pcs)->_problem)->Colmation_Layer_Thickness) - ((GetNodeValue(msh_node, 1) / (((this)->fem)->rhow * gravity_constant)))) / ((((this)->fem)->pcs)->_problem)->Colmation_Layer_Thickness); 
 						}
-						value = ((((this)->fem)->pcs)->_problem)->OGSHEPipeLenght[ogshe_k] * 4 * (((((this)->fem)->pcs)->_problem)->a00 + ((((this)->fem)->pcs)->_problem)->a10 * P_temp + ((((this)->fem)->pcs)->_problem)->a01 * this->_problem->PipeWaterLevel[ogshe_k] + ((((this)->fem)->pcs)->_problem)->a20 * pow(P_temp, 2) +
-							((((this)->fem)->pcs)->_problem)->a11 * P_temp * this->_problem->PipeWaterLevel[ogshe_k] + ((((this)->fem)->pcs)->_problem)->a02 * pow(this->_problem->PipeWaterLevel[ogshe_k], 2) +
-							((((this)->fem)->pcs)->_problem)->a30 * pow(P_temp, 3) + ((((this)->fem)->pcs)->_problem)->a21 * pow(P_temp, 2) * this->_problem->PipeWaterLevel[ogshe_k] +
-							((((this)->fem)->pcs)->_problem)->a12 * P_temp * pow(this->_problem->PipeWaterLevel[ogshe_k], 2) + ((((this)->fem)->pcs)->_problem)->a03 * pow(this->_problem->PipeWaterLevel[ogshe_k], 3) +
-							((((this)->fem)->pcs)->_problem)->a40 * pow(P_temp, 4) + ((((this)->fem)->pcs)->_problem)->a31 * pow(P_temp, 3) * this->_problem->PipeWaterLevel[ogshe_k] +
-							((((this)->fem)->pcs)->_problem)->a22 * pow(P_temp, 2) * pow(this->_problem->PipeWaterLevel[ogshe_k], 2) +
-							((((this)->fem)->pcs)->_problem)->a13 * P_temp * pow(this->_problem->PipeWaterLevel[ogshe_k], 3)); //apply leakage function
-						double ogshe_output_temp[] = { msh_node, fem->ST_Pressures[ogshe_k], this->_problem->PipeWaterLevel[ogshe_k], value };
-						// ap initialize temporal output file
-						if (i == 0 && (Tim->step_current - 1) % 4 == 0) //output every 60 (dt = 1s) or 120 (dt = 2s) sec
+						if (i == 0 && (Tim->step_current - 1) % ((((this)->fem)->pcs)->_problem)->LF_output_steps == 0) //output every 60 (dt = 1s) or 120 (dt = 2s) sec
 						{
-							cout << "Printing leakage..." << endl;
 							// ap ogshe new output each timestep  
 							std::stringstream ss;	// ap initialize empty stringstream
 							ss << "leakageflow_time_step_no_" << Tim->step_current - 1 << ".csv"; //fill stringstream
 							Leakagefile.open(ss.str().c_str());	//name file after stringstream 
 							Leakagefile << "ogshe_temporal_output" << endl; //temporal output file header
 							Leakagefile << "nodes per st line element: " << m_st->st_node_ids.size() << endl;
-							Leakagefile << "node_id" << " " << "he_water_level_[m]" << " " << "st_node_pressure_[pa]" << " " << "leakage_flow_[m^3_s^(-1)]" << endl;
+							Leakagefile << "Pipe_name" << " " << "Mesh_node" << "he_water_level_[m]" << " " << "st_node_pressure_[Pa]" << " " << "leakage_volume_[m^3]" << endl;
 						}
 						// ap data output
-						Leakagefile << ((((this)->fem)->pcs)->_problem)->PipeName[ogshe_k] << " " << this->_problem->PipeWaterLevel[ogshe_k] << " " << fem->ST_Pressures[ogshe_k] << " " << value << endl;
+						Leakagefile << ((((this)->fem)->pcs)->_problem)->PipeName[ogshe_k]  << " " << this->_problem->PipeWaterLevel[ogshe_k] << " " << GetNodeValue(msh_node, 1) << " " << value << endl;
 					}
 					this->_problem->zufluss[ogshe_k] = value;
 				}
@@ -8346,7 +8379,7 @@ std::valarray<double> CRFProcess::getNodeVelocityVector(const long node_id)
 				//}
 				//--------------------------------------------------------------------
 				//this->_problem->zufluss[ogshe_k] = value; //for HYSTEM-EXTRAN // 10 is length of POLYLINE -> get this value from code // Transfer back to HE doesn't yet work. Figure this out...
-				m_st->geo_node_value = value;
+				m_st->geo_node_value = value / ((((this)->fem)->pcs)->_problem)->exchange_time_step_OGSHE;
 
 			//--------------------------------------------------------------------
 			value *= time_fac * fac;
@@ -16112,6 +16145,28 @@ void CRFProcess::CalGPVelocitiesfromECLIPSE(string path,
 			pcs_vector[indexProcess]->SetNodeValue(i, variable_index, c_CO2inLiquid);
 		}
 	}
+	//Attempt to write leakage output function AP
+	//void CRFProcess::Write_OGSHE_output()
+	//{
+	//	ofstream Leakagefile;
+	//	if ((Tim->step_current - 1) % ((((this)->fem)->pcs)->_problem)->LF_output_steps == 0) //output every 60 (dt = 1s) or 120 (dt = 2s) sec
+	//	{
+	//		//cout << "           Printing leakage..." << endl;
+	//		// ap ogshe new output each timestep  
+	//		std::stringstream ss;	// ap initialize empty stringstream
+	//		ss << "leakageflow_time_step_no_" << Tim->step_current - 1 << ".csv"; //fill stringstream
+	//		Leakagefile.open(ss.str().c_str());	//name file after stringstream 
+	//		Leakagefile << "ogshe_temporal_output" << endl; //temporal output file header
+	//		Leakagefile << "nodes per st line element: " << m_st->st_node_ids.size() << endl;
+	//		Leakagefile << "Pipe_name" << " " << "Mesh_node" << "he_water_level_[m]" << " " << "st_node_pressure_[Pa]" << " " << "leakage_volume_[m^3]" << endl;
+	//	}
+	//	// ap data output
+	//	for (int i = 0; i < ((((this)->fem)->pcs)->_problem)->PipeDatumn.size(); i++)
+	//	{
+	//		Leakagefile << ((((this)->fem)->pcs)->_problem)->PipeName[i] << " " << this->_problem->PipeWaterLevel[i] << " " << GetNodeValue(msh_node, 1) << " " << value << endl;
+	//	}
+
+	//}
 
 //-------------------END------------------
 

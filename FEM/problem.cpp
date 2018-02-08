@@ -4496,33 +4496,45 @@ void Problem::readHEFile()
 	else if (DataArray.at(1) == "$LEAKAGE_FUNCTION") //Experimental. A LF is a polynome describing the pipe leakage process through a colmation layer. This transfer function upscales pipe leakage by neglecting the colmation layer.
 	{
 		std::cout << "Import data from*.he file for LF coupling" << std::endl;
+		//Import defect area
+		//Defect_Area = atof(DataArray.at(7).c_str());
+		//Import colmation layer thickness
+		Colmation_Layer_Thickness = atof(DataArray.at(7).c_str());
+		//Import colmation layer permeability
+		Backfill_Permeability = atof(DataArray.at(9).c_str());
+		//Import pressure at which pipe diosconnects from groundwater
+		Disconnection_Pressure = atof(DataArray.at(11).c_str());
 		//Import coeff. for leakage function
-		a00 = atof(DataArray.at(7).c_str());
-		a10 = atof(DataArray.at(8).c_str());
-		a01 = atof(DataArray.at(9).c_str());
-		a20 = atof(DataArray.at(10).c_str());
-		a11 = atof(DataArray.at(11).c_str());
-		a02 = atof(DataArray.at(12).c_str());
-		a30 = atof(DataArray.at(13).c_str());
-		a21 = atof(DataArray.at(14).c_str());
-		a12 = atof(DataArray.at(15).c_str());
-		a03 = atof(DataArray.at(16).c_str());
-		a40 = atof(DataArray.at(17).c_str());
-		a31 = atof(DataArray.at(18).c_str());
-		a22 = atof(DataArray.at(19).c_str());
-		a13 = atof(DataArray.at(20).c_str());
+		a00 = atof(DataArray.at(13).c_str());
+		a10 = atof(DataArray.at(14).c_str());
+		a01 = atof(DataArray.at(15).c_str());
+		a20 = atof(DataArray.at(16).c_str());
+		a11 = atof(DataArray.at(17).c_str());
+		a02 = atof(DataArray.at(18).c_str());
+		a30 = atof(DataArray.at(19).c_str());
+		a21 = atof(DataArray.at(20).c_str());
+		a12 = atof(DataArray.at(21).c_str());
+		a03 = atof(DataArray.at(22).c_str());
+		a40 = atof(DataArray.at(23).c_str());
+		a31 = atof(DataArray.at(24).c_str());
+		a22 = atof(DataArray.at(25).c_str());
+		a13 = atof(DataArray.at(26).c_str());
+		//Import output STEPS and output format
+		LF_output_steps = atoi(DataArray.at(28).c_str());;
+		LF_output_format = DataArray.at(29);
 		// import HE model setup
 		for (long i = 0; i < NoPipes; i++)
 		{
-			OGSHE_LF_ID.push_back(atoi(DataArray.at(22 + (i * 9)).c_str()));
-			PipeName.push_back(DataArray.at(23 + (i * 9)).c_str());
-			UpstreamManhole.push_back(atoi(DataArray.at(24 + (i * 9)).c_str()));
-			DownstreamManhole.push_back(atoi(DataArray.at(25 + (i * 9)).c_str()));
-			PipeDatumn.push_back(atof(DataArray.at(26 + (i * 9)).c_str()));
-			OGSHE_FEMMshElementForLF.push_back(atoi(DataArray.at(27 + (i * 9)).c_str()));
-			OGSHE_FEMMshNodePositionForLF.push_back(atof(DataArray.at(28 + (i * 9)).c_str()));
-			OGSHEPipeLenght.push_back(atof(DataArray.at(29 + (i * 9)).c_str())); 
-			OGSHE_pipe_position_in_alphanumeric_list.push_back(atoi(DataArray.at(30 + (i * 9)).c_str()));
+			OGSHE_LF_ID.push_back(atoi(DataArray.at(31 + (i * 8)).c_str()));
+			PipeName.push_back(DataArray.at(32 + (i * 8)).c_str());
+			UpstreamManhole.push_back(atoi(DataArray.at(33 + (i * 8)).c_str()));
+			DownstreamManhole.push_back(atoi(DataArray.at(34 + (i * 8)).c_str()));
+			PipeDatumn.push_back(atof(DataArray.at(35 + (i * 8)).c_str()));
+			//OGSHE_FEMMshElementForLF.push_back(atoi(DataArray.at(34 + (i * 9)).c_str())); // OLD FemElementID and NodePosition for LF determination
+			//OGSHE_FEMMshNodePositionForLF.push_back(atof(DataArray.at(35 + (i * 9)).c_str()));
+			OGSHEPipeLenght.push_back(atof(DataArray.at(36 + (i * 8)).c_str())); 
+			OGSHE_pipe_position_in_alphanumeric_list.push_back(atoi(DataArray.at(37 + (i * 8)).c_str()));
+			Defect_Area.push_back(atof(DataArray.at(38 + (i * 8)).c_str()));
 		}
 	}
 	else
@@ -4531,6 +4543,7 @@ void Problem::readHEFile()
 	}
 	// future tasks: (1)enable to set defect surface area (leakage function as specific flux per area)
 	// (2)enable to set output times/ write leakage flow as output in matrix at the end of the simulation 
+	// (3)leakage function only for exfiltration. Infiltration should directly be calculated via Darcy without any colmation layer
 }
 /**************************************************************************
 OGS-HE Coupling:
@@ -4595,7 +4608,7 @@ void Problem::OGSHEDataTransfer()
 	{
 		pipe->GetD(wasserstand);  // AP wasserstand ist wasserstand in Mitte der Rohrleitung
 		PipeWaterLevelDatumn.push_back(wasserstand);
-		std::cout << "Manhole No: " << i << " WaterLevelToDatumn: " << PipeWaterLevelDatumn[i] << "\n";  
+		//std::cout << "Manhole No: " << i << " WaterLevelToDatumn: " << PipeWaterLevelDatumn[i] << "\n";  
 	}
 		//to calculate mean pipe water level from manhole water levels (assumption manhole bottom = pipe bottom)
 	if (anzahlHaltungen != PipeDatumn.size())
@@ -4607,24 +4620,19 @@ void Problem::OGSHEDataTransfer()
 		for (int i = 0; i < NoPipes; i++)
 		{
 			PipeWaterLevel.push_back(((PipeWaterLevelDatumn[UpstreamManhole[i]] + PipeWaterLevelDatumn[DownstreamManhole[i]]) / 2) - PipeDatumn[i]);
-			std::cout << "Pipe No: " << i << ", Water Level [m]: " << PipeWaterLevel[i] << "\n";
-			if (PipeWaterLevel[i] < 0)
-			{
-				std::cout << "Warning at Pipe: " << PipeName[i] << ". Pipe water level smaller zero. Check your manhole and pipe reference heights." << std::endl;
-			}
+			//std::cout << "Pipe No: " << i << ", Water Level [m]: " << PipeWaterLevel[i] << "\n";
+			//if (PipeWaterLevel[i] < 0)
+			//{
+			//	std::cout << "Warning at Pipe: " << PipeName[i] << ". Pipe water level smaller zero. Check your manhole and pipe reference heights." << std::endl;
+			//}
 		}
 	}
 	else
 	{
-		std::cout << "The number of pipes (" << anzahlHaltungen << ") does correspond to number of pipes in HE file(" << PipeDatumn.size() << ")" << std::endl;
+		//std::cout << "The number of pipes (" << anzahlHaltungen << ") does correspond to number of pipes in HE file(" << PipeDatumn.size() << ")" << std::endl;
 		for (int i = 0; i <= (anzahlHaltungen - 1); i++)
 		{
 			PipeWaterLevel.push_back(((PipeWaterLevelDatumn[UpstreamManhole[i]] + PipeWaterLevelDatumn[DownstreamManhole[i]]) / 2) - PipeDatumn[i]);
-			//std::cout << "Pipe No: " << i << " WaterLevel: " << PipeWaterLevel[i] << "\n";
-			if (PipeWaterLevel[i] < 0)
-			{
-				std::cout << "Warning: Pipe water level smaller zero. Check your manhole and pipe reference heights." << std::endl;
-			}
 		}
 	}
 		// AP here the vector inflow (including all ST values) can be used to transfer STs to HE 

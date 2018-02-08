@@ -45,6 +45,12 @@ class Problem
 	   std::vector <int> OGSHE_FEMMshNodePositionForLF;
 	   std::vector <int> OGSHE_pipe_position_in_alphanumeric_list;
 	   std::vector <double> OGSHEPipeLenght;
+	   int LF_output_steps;
+	   std::string LF_output_format;
+	   std::vector <double> Defect_Area;
+	   double Colmation_Layer_Thickness;
+	   double Backfill_Permeability;
+	   double Disconnection_Pressure;
 	   double a00;
 	   double a10;
 	   double a01;
