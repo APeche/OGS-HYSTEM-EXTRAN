@@ -727,6 +727,8 @@ public:
 	void CalGPVelocitiesfromFluidMomentum(); //SB 4900
 	bool use_velocities_for_transport;    //SB4900
 
+	void Write_OGSHE_output();   //AP28122017
+
 	//---
 	double Execute();
 	double ExecuteNonLinear(int loop_process_number, bool print_pcs=true);
