@@ -8318,7 +8318,11 @@ std::valarray<double> CRFProcess::getNodeVelocityVector(const long node_id)
 							P_temp = GetNodeValue(msh_node, 1);
 							value = ((((this)->fem)->pcs)->_problem)->Defect_Area[ogshe_k] * ((((this)->fem)->pcs)->_problem)->OGSHEPipeLenght[ogshe_k] * ((((this)->fem)->pcs)->_problem)->exchange_time_step_OGSHE * 
 									((((((this)->fem)->pcs)->_problem)->Backfill_Permeability *((this)->fem)->rhow * gravity_constant) / fem->FluidProp->Viscosity()) *
-								(((this->_problem->PipeWaterLevel[ogshe_k] + ((((this)->fem)->pcs)->_problem)->Colmation_Layer_Thickness) - ((GetNodeValue(msh_node, 1) / (((this)->fem)->rhow * gravity_constant)))) / ((((this)->fem)->pcs)->_problem)->Colmation_Layer_Thickness); 
+								(((this->_problem->PipeWaterLevel[ogshe_k] + ((((this)->fem)->pcs)->_problem)->Colmation_Layer_Thickness) - ((GetNodeValue(msh_node, 1) / (((this)->fem)->rhow * gravity_constant)))) / ((((this)->fem)->pcs)->_problem)->Colmation_Layer_Thickness);
+							if (value >= 0) 
+							{
+								value *= (-1);
+							}
 						}
 						if (i == 0 && (Tim->step_current - 1) % ((((this)->fem)->pcs)->_problem)->LF_output_steps == 0) //output every 60 (dt = 1s) or 120 (dt = 2s) sec
 						{
